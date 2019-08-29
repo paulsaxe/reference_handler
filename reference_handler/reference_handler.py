@@ -14,7 +14,8 @@ from .utils import entry_to_bibtex
 from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import Base
+from sqlalchemy.sql import text
+from .models import Base, Context, Citation
 
 supported_fmts = ['bibtex']
 
@@ -36,7 +37,6 @@ class Reference_Handler(object):
         # connect to the database using it's url
         # Must tell sqlalchemy which driver to use
         # https://docs.sqlalchemy.org/en/13/core/engines.html#sqlite
-        print('----------', database)
         engine = create_engine('sqlite:///'+database)
 
         # use this if you want to drop all tables
@@ -241,23 +241,25 @@ class Reference_Handler(object):
         Gets the ID of the given raw or doi if exists 
         """
 
-        if raw is None:
-            if alias is None:
-                if doi is None:
-                    raise NameError('Variables "raw" or "alias" or "DOI" must be input.')
-                else:
-                    self.cur.execute("SELECT id FROM citation WHERE doi=?;" (doi,))
-            else:
-                self.cur.execute("SELECT id FROM citation WHERE alias=?;" (alias,))
-        else:
-            self.cur.execute("SELECT id FROM citation WHERE raw=?;", (raw, ))
+        query = {}
+        # shouldn't do full text matching on raw, remove this
+        if raw is not None:
+            query['raw'] = raw   #
 
-        ret = self.cur.fetchall()
+        if alias is not None:
+            query['alias'] = alias
 
-        if len(ret) == 0:
-            return None
+        if doi is not None:
+            query['doi'] = doi
 
-        return ret[0][0]
+        with self.get_session_scope() as session:
+            ret = session.query(Citation.id).filter_by(**query).first()  # or .all()
+
+
+        if ret:
+            ret = ret[0]
+
+        return ret
 
     def _get_context_id(self, reference_id=None, module=None, note=None, level=None):
         """
