@@ -11,6 +11,10 @@ import random
 import string
 import bibtexparser
 from .utils import entry_to_bibtex
+from contextlib import contextmanager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from .models import Base
 
 supported_fmts = ['bibtex']
 
@@ -27,7 +31,43 @@ class Reference_Handler(object):
 
         self.conn = sqlite3.connect(database)
         self.cur = self.conn.cursor()
-        self._initialize_tables()
+        # self._initialize_tables()
+
+        # connect to the database using it's url
+        # Must tell sqlalchemy which driver to use
+        # https://docs.sqlalchemy.org/en/13/core/engines.html#sqlite
+        engine = create_engine('sqlite://'+database)
+
+        # use this if you want to drop all tables
+        # Base.metadata.drop_all(engine)
+
+        # Creates all tables and indices
+        Base.metadata.create_all(engine)
+
+        # create a configured session class to use later
+        self.Session = sessionmaker(bind=engine)
+
+
+    @contextmanager
+    def get_session_scope(self):
+        """Provide a transactional scope
+        Usage:
+            with self.get_session_scope() as session:
+                result = session.query(..)
+                print(result)
+            print('Query is done and committed')
+
+        """
+
+        session = self.Session()
+        try:
+            yield session
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def dump(self, outfile=None, fmt='bibtex', level=3):
         """
@@ -193,47 +233,6 @@ class Reference_Handler(object):
             ret = bibtexparser.loads(raw).entries[0] 
             if 'doi' in ret.keys():
                 return ret['doi']
-            
-
-    def _initialize_tables(self):
-        """
-        Initializes the citation and context tables 
-        """
-        
-        self.cur.execute(
-            """CREATE TABLE IF NOT EXISTS "citation" (
-            "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
-            "alias" TEXT NOT NULL UNIQUE, 
-            "raw"	TEXT NOT NULL UNIQUE,
-            "doi"	TEXT UNIQUE
-            ); 
-            """
-        )
-
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_raw on citation (raw);")
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_alias on citation (alias);")
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_doi on citation (doi);")
-
-        self.cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS "context" (
-            "id"	INTEGER PRIMARY KEY AUTOINCREMENT,
-            "reference_id" INTEGER NOT NULL,
-            "module" TEXT NOT NULL,
-            "note" TEXT NOT NULL,
-            "count"	INTEGER NOT NULL,
-            "level" INTEGER NOT NULL,
-            FOREIGN KEY(reference_id) REFERENCES Citation(id)
-            );
-            """
-        )
-
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_refid on context (reference_id);")
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_module on context (module);")
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_count on context (count);")
-        self.cur.execute("CREATE INDEX IF NOT EXISTS idx_level on context (level);")
-
-        self.conn.commit()
 
 
     def _get_reference_id(self, raw=None, alias=None, doi=None):
