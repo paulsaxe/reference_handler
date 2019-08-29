@@ -16,9 +16,9 @@ class Citation(Base):
     doi = Column(String, unique=True)
 
     __table_args__ = (
-        Index('alias'),
-        Index('doi'),
-        Index('raw')
+        Index('ix_citation_alias', 'alias'),
+        Index('ix_citation_doi', 'doi'),
+        Index('ix_citation_raw', 'raw')
     )
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,7 +27,6 @@ class Context(Base):
     __tablename__ = 'context'
 
     id = Column(Integer, primary_key=True)
-    reference_id = Column(Index, nullable=False)  # unique?
     module = Column(String, nullable=False)
     note = Column(String, nullable=True)
     count = Column(Integer, nullable=False)
@@ -40,7 +39,7 @@ class Context(Base):
     # Optional:
 
     __table_args__ = (
-        Index('module'),
-        Index('count'),
-        Index('level')
+        Index('ix_context_moldule', 'module'),
+        Index('ix_context_count', 'count'),
+        Index('ix_context_level', 'level')
     )

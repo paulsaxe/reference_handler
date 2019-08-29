@@ -36,7 +36,8 @@ class Reference_Handler(object):
         # connect to the database using it's url
         # Must tell sqlalchemy which driver to use
         # https://docs.sqlalchemy.org/en/13/core/engines.html#sqlite
-        engine = create_engine('sqlite://'+database)
+        print('----------', database)
+        engine = create_engine('sqlite:///'+database)
 
         # use this if you want to drop all tables
         # Base.metadata.drop_all(engine)
